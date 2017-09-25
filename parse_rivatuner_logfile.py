@@ -83,17 +83,23 @@ def init_data_points_dict(col_names):
 
 # @param data_points: complete dictionary containing performance data
 def print_data(data_points):
-	print 'Mean FPS', numpy.mean(data_points['Framerate'])
-	print 'Median FPS', numpy.median(data_points['Framerate'])
+	FPS_mean = numpy.mean(data_points['Framerate'])
+	FPS_median = numpy.median(data_points['Framerate'])
+	print 'Mean FPS', FPS_mean
+	print 'Median FPS', FPS_median
+	print 'Mean - Median FPS pct differential', (FPS_mean - FPS_median)/FPS_mean
 	print '10th Pct FPS', numpy.percentile(data_points['Framerate'], 10)
 	print '90th Pct FPS', numpy.percentile(data_points['Framerate'], 90)
 	
 # Discard values greater than (1.5x) IQR outside 1st or 3rd quartile
 # @param data_points: complete dictionary containing performance data
 # @param accept_outliers: list containing keys this function shall ignore
-# @param threshold: number of times the IQR an outlier must lie outside 
+# @param threshold: number of times the IQR an outlier must lie outside the 
+# 	first or third quartile
+# @param upper_bound_only: only discard the high value outliers for these keys
 # @return input dictionary, except with outlier values removed
-def discard_outliers(data_points, accept_outliers, threshold=1.5):
+def discard_outliers(data_points, accept_outliers, threshold=1.5,
+	upper_bound_only=[]):
 	keys = data_points.keys()
 
 	processed_data_points = dict()
@@ -115,15 +121,19 @@ def discard_outliers(data_points, accept_outliers, threshold=1.5):
 
 		# Filter out outliers from non outliers
 		for data_point in data_points[key]:
-			if data_point < lower_threshold or data_point > higher_threshold:
+			if key in upper_bound_only:
+				if data_point > higher_threshold:
+					outliers.append(data_point)
+				else: 
+					not_outliers.append(data_point)
+			elif data_point < lower_threshold or data_point > higher_threshold:
 				outliers.append(data_point)
 			else:
 				not_outliers.append(data_point)
 
 		# Print outliers
-		print 'Outliers found in', key, outliers
-		print 'Lower bound', lower_threshold
-		print 'Higher bound', higher_threshold
+		#print 'Outliers found in', key, outliers
+		#print 'Low bound, high bound: ', lower_threshold, higher_threshold
 
 		# Save non outliers
 		processed_data_points[key] = not_outliers
@@ -131,7 +141,12 @@ def discard_outliers(data_points, accept_outliers, threshold=1.5):
 	return processed_data_points
 
 def main():
-	input_filename = 'HardwareMonitoring.hml'
+	input_filename = '10603G_stock_heaven.hml'
+	#input_filename = '1050_stock_heaven.hml'
+	input_filename = '460_stock_heaven.hml'
+	input_filename = '10606G_stock_heaven.hml'
+	input_filename = '4804G_stock_heaven.hml'
+	
 	accept_outliers = ['FB usage', 'Memory usage', 'RAM usage', 'CPU usage']
 
 	# Load input file
@@ -150,9 +165,14 @@ def main():
 		if is_valid_data_point(row, num_cols):
 			data_points = map_data_points_to_dict(row, data_points, col_names)
 
-	# Filter out outliers
-	data_points = discard_outliers(data_points, accept_outliers)
+	print '[ Before high outliers discarded ]'
+	print_data(data_points)
 
+	# Filter out outliers
+	data_points = discard_outliers(data_points, accept_outliers, 
+		upper_bound_only = ['Framerate'])
+
+	print '[ After high outliers discarded ]'
 	print_data(data_points)
 
 main()

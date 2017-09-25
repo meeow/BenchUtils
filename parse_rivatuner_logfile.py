@@ -1,7 +1,7 @@
 # Author: Brandon Hong
 # Pre-release
 
-import numpy
+import numpy, math
 
 # @param filename: path to target file
 def open_file(filename):
@@ -81,16 +81,58 @@ def init_data_points_dict(col_names):
 
 	return data_points
 
+# @param data_points: complete dictionary containing performance data
 def print_data(data_points):
-	print 'Mean', numpy.mean(data_points['Framerate'])
-	print 'Median', numpy.median(data_points['Framerate'])
-	print '10th Percentile', numpy.percentile(data_points['Framerate'], 10)
-	print '90th Percentile', numpy.percentile(data_points['Framerate'], 90)
-	print 'Min', min(data_points['Framerate'])
-	print 'Max', max(data_points['Framerate'])
+	print 'Mean FPS', numpy.mean(data_points['Framerate'])
+	print 'Median FPS', numpy.median(data_points['Framerate'])
+	print '10th Pct FPS', numpy.percentile(data_points['Framerate'], 10)
+	print '90th Pct FPS', numpy.percentile(data_points['Framerate'], 90)
+	
+# Discard values greater than (1.5x) IQR outside 1st or 3rd quartile
+# @param data_points: complete dictionary containing performance data
+# @param accept_outliers: list containing keys this function shall ignore
+# @param threshold: number of times the IQR an outlier must lie outside 
+# @return input dictionary, except with outlier values removed
+def discard_outliers(data_points, accept_outliers, threshold=1.5):
+	keys = data_points.keys()
+
+	processed_data_points = dict()
+
+	first_quartile, third_quartile = 0, 0
+	interquartile_range = 0
+
+	for key in keys:
+		if key in accept_outliers: continue
+
+		outliers, not_outliers = list(), list()
+
+		# Calculate cutoffs for outlier status
+		first_quartile = numpy.percentile(data_points[key], 25)
+		third_quartile = numpy.percentile(data_points[key], 75)
+		interquartile_range = third_quartile - first_quartile
+		lower_threshold = first_quartile - (threshold * interquartile_range)
+		higher_threshold = third_quartile + (threshold * interquartile_range)
+
+		# Filter out outliers from non outliers
+		for data_point in data_points[key]:
+			if data_point < lower_threshold or data_point > higher_threshold:
+				outliers.append(data_point)
+			else:
+				not_outliers.append(data_point)
+
+		# Print outliers
+		print 'Outliers found in', key, outliers
+		print 'Lower bound', lower_threshold
+		print 'Higher bound', higher_threshold
+
+		# Save non outliers
+		processed_data_points[key] = not_outliers
+
+	return processed_data_points
 
 def main():
 	input_filename = 'HardwareMonitoring.hml'
+	accept_outliers = ['FB usage', 'Memory usage', 'RAM usage', 'CPU usage']
 
 	# Load input file
 	input_file = open_file(input_filename)
@@ -107,6 +149,9 @@ def main():
 	for row in input_file:
 		if is_valid_data_point(row, num_cols):
 			data_points = map_data_points_to_dict(row, data_points, col_names)
+
+	# Filter out outliers
+	data_points = discard_outliers(data_points, accept_outliers)
 
 	print_data(data_points)
 

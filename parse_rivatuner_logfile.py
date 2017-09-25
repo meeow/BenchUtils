@@ -41,6 +41,16 @@ def get_col_names(file):
 
 	return col_names
 
+# @param file: input file that has been split by line
+# @return: formatted GPU name (2nd line of .hml file)
+def get_GPU_name(file):
+	GPU_info = file[1]
+
+	# Discard timestamp
+	GPU_info = GPU_info.split(',')[2].strip()
+
+	return GPU_info
+
 # @param row: one unformatted row of input file that has been split by line
 # @return: 1 if row is valid, else 0
 def is_valid_data_point(row, num_cols):
@@ -142,7 +152,7 @@ def discard_outliers(data_points, accept_outliers, threshold=1.5,
 
 def main():
 	input_filename = '10603G_stock_heaven.hml'
-	#input_filename = '1050_stock_heaven.hml'
+	input_filename = '1050_stock_heaven.hml'
 	input_filename = '460_stock_heaven.hml'
 	input_filename = '10606G_stock_heaven.hml'
 	input_filename = '4804G_stock_heaven.hml'
@@ -153,7 +163,8 @@ def main():
 	input_file = open_file(input_filename)
 	input_file = split_by_line(input_file)
 
-	# Get column names
+	# Get column names and GPU name
+	GPU_name = get_GPU_name(input_file)
 	col_names = get_col_names(input_file)
 	num_cols = len(col_names)
 
@@ -165,6 +176,7 @@ def main():
 		if is_valid_data_point(row, num_cols):
 			data_points = map_data_points_to_dict(row, data_points, col_names)
 
+	print GPU_name
 	print '[ Before high outliers discarded ]'
 	print_data(data_points)
 

@@ -1,11 +1,26 @@
 # Author: Brandon Hong
 # Pre-release
 
-import numpy, math
+import numpy, math, logging
+
+# @param logfile_name: file name of logfile, logs to stdout if none specified
+def init_logger(logfile_name=None):
+	# Log to file
+	if logfile_name:
+		logging.basicConfig(filename=logfile_name, level=logging.INFO,
+			format='%(message)s')
+	# Log to stdout
+	else:
+		logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 # @param filename: path to target file
 def open_file(filename):
-	return open(filename, 'r').read()
+	file = open(filename, 'r').read()
+
+	if not file:
+		logging.error('Unable to read/find input file or input file empty')
+
+	return file
 
 # @param file: input file object 
 def split_by_line(file):
@@ -91,24 +106,64 @@ def init_data_points_dict(col_names):
 
 	return data_points
 
+# Dump statistics to logfile
+# @param statistics: complete dictionary containing performance statistics for 
+#	every column
+# @param log_to_file: dump output to file if not empty string
+# @param include_only: only log specified columns, or log all columns if empty 
+# @param desired_statistics: only log specified statistics, or log all 
+#	statistics if empty 
+def log_data_summary(statistics, include_only=[], desired_statistics=[]):
+	column_keys = statistics.keys()
+	statistic_types = statistics[column_keys[0]].keys()
+
+	# Log all targeted columns and statistics
+	for key in column_keys:
+		if not include_only or key in include_only:
+			for statistic in statistic_types:
+				if not desired_statistics or statistic in desired_statistics:
+					logging.info('{} - {:<25}: {}'.format(key, statistic, 
+						round(statistics[key][statistic], 2)))
+
 # @param data_points: complete dictionary containing performance data
-def print_data(data_points):
-	FPS_mean = numpy.mean(data_points['Framerate'])
-	FPS_median = numpy.median(data_points['Framerate'])
-	print 'Mean FPS', FPS_mean
-	print 'Median FPS', FPS_median
-	print 'Mean - Median FPS pct differential', (FPS_mean - FPS_median)/FPS_mean
-	print '10th Pct FPS', numpy.percentile(data_points['Framerate'], 10)
-	print '90th Pct FPS', numpy.percentile(data_points['Framerate'], 90)
-	
+# @return: dictionary with each measured metric as a key and each corresponding
+#	value being a sub-dictionary containing statistics
+def calculate_statistics(data_points):
+	stat_dict = dict()
+	keys = data_points.keys()
+
+	for key in data_points.keys():
+		raw_data = data_points[key]
+		stat_dict[key] = dict()
+
+		# Calculate and store basic statistics
+		stat_dict[key]['Mean'] = numpy.mean(raw_data)
+		stat_dict[key]['Median'] = numpy.median(raw_data)
+		stat_dict[key]['First_Quartile'] = numpy.percentile(raw_data, 25) 
+		stat_dict[key]['Third_Quartile'] = numpy.percentile(raw_data, 75)
+		stat_dict[key]['1_Pct_Low'] = numpy.percentile(raw_data, 1)
+		stat_dict[key]['Standard_Deviation'] = numpy.std(raw_data)
+		stat_dict[key]['Max'] = max(raw_data)
+		stat_dict[key]['Min'] = min(raw_data)
+
+		# Abstractions based on basic statistics
+		# Percent that the mean is greater than the median
+		stat_dict[key]['Mean_Median_Delta_Pct'] = 100 * ((stat_dict[key]['Mean'] 
+			- stat_dict[key]['Median']) / stat_dict[key]['Median'])
+		stat_dict[key]['Interquartile_Range'] = (stat_dict[key]['Third_Quartile']
+			- stat_dict[key]['First_Quartile'])
+
+	return stat_dict
+
 # Discard values greater than (1.5x) IQR outside 1st or 3rd quartile
 # @param data_points: complete dictionary containing performance data
 # @param accept_outliers: list containing keys this function shall ignore
 # @param threshold: number of times the IQR an outlier must lie outside the 
-# 	first or third quartile
+# 	first or third quartile.
+#	Outlier - threshold = 1.5 | Extreme Outlier - threshold = 3.0
 # @param upper_bound_only: only discard the high value outliers for these keys
 # @return input dictionary, except with outlier values removed
-def discard_outliers(data_points, accept_outliers, threshold=1.5,
+def discard_outliers(data_points, accept_outliers=[], threshold=3.0,
 	upper_bound_only=[]):
 	keys = data_points.keys()
 
@@ -118,7 +173,9 @@ def discard_outliers(data_points, accept_outliers, threshold=1.5,
 	interquartile_range = 0
 
 	for key in keys:
-		if key in accept_outliers: continue
+		# Skip columns that user specified not to filter
+		if key in accept_outliers: 
+			continue
 
 		outliers, not_outliers = list(), list()
 
@@ -141,7 +198,7 @@ def discard_outliers(data_points, accept_outliers, threshold=1.5,
 			else:
 				not_outliers.append(data_point)
 
-		# Print outliers
+		# Print outliers (debug)
 		#print 'Outliers found in', key, outliers
 		#print 'Low bound, high bound: ', lower_threshold, higher_threshold
 
@@ -151,13 +208,31 @@ def discard_outliers(data_points, accept_outliers, threshold=1.5,
 	return processed_data_points
 
 def main():
+	# <= User configure (This will be moved to config file once implemented)
+
 	input_filename = '10603G_stock_heaven.hml'
-	input_filename = '1050_stock_heaven.hml'
-	input_filename = '460_stock_heaven.hml'
-	input_filename = '10606G_stock_heaven.hml'
-	input_filename = '4804G_stock_heaven.hml'
+	#input_filename = '1050_stock_heaven.hml'
+	#input_filename = '460_stock_heaven.hml'
+	#input_filename = '10606G_stock_heaven.hml'
+	#input_filename = '4804G_stock_heaven.hml'
+	#input_filename = '4804G_stock_FFXIV.hml'
 	
+	# Ignore outliers for these columns
 	accept_outliers = ['FB usage', 'Memory usage', 'RAM usage', 'CPU usage']
+
+	# Include only these columns in the logfile
+	include_only = ['Framerate']
+
+	# Only drop high outliers
+	upper_bound_only = ['Framerate']
+
+	# Only log these statistics
+	desired_statistics = ['Mean', 'Median', '1_Pct_Low', 'Standard_Deviation',
+		'Mean_Median_Delta_Pct']
+
+	# End user configure =>
+
+	init_logger()
 
 	# Load input file
 	input_file = open_file(input_filename)
@@ -176,15 +251,15 @@ def main():
 		if is_valid_data_point(row, num_cols):
 			data_points = map_data_points_to_dict(row, data_points, col_names)
 
-	print GPU_name
-	print '[ Before high outliers discarded ]'
-	print_data(data_points)
-
 	# Filter out outliers
 	data_points = discard_outliers(data_points, accept_outliers, 
 		upper_bound_only = ['Framerate'])
 
-	print '[ After high outliers discarded ]'
-	print_data(data_points)
+	# Calculate statistics
+	statistics = calculate_statistics(data_points)
+
+	# Report results
+	log_data_summary(statistics, include_only=include_only, desired_statistics=
+		desired_statistics)
 
 main()

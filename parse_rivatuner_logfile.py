@@ -125,6 +125,13 @@ def log_data_summary(statistics, include_only=[], desired_statistics=[]):
 					logging.info('{} - {:<25}: {}'.format(key, statistic, 
 						round(statistics[key][statistic], 2)))
 
+	# Add newline for formatting
+	logging.info('\n')
+
+def log_bench_parameters(GPU_name, logfile_name):
+	# Log GPU name
+	logging.info('{} - {}'.format(GPU_name, logfile_name))
+
 # @param data_points: complete dictionary containing performance data
 # @return: dictionary with each measured metric as a key and each corresponding
 #	value being a sub-dictionary containing statistics
@@ -211,10 +218,11 @@ def main():
 	# <= User configure (This will be moved to config file once implemented)
 
 	input_filename = '10603G_stock_heaven.hml'
+	logfile_name = 'analysis.txt'
 	#input_filename = '1050_stock_heaven.hml'
 	#input_filename = '460_stock_heaven.hml'
 	#input_filename = '10606G_stock_heaven.hml'
-	#input_filename = '4804G_stock_heaven.hml'
+	input_filename = '4804G_stock_heaven.hml'
 	#input_filename = '4804G_stock_FFXIV.hml'
 	
 	# Ignore outliers for these columns
@@ -232,7 +240,7 @@ def main():
 
 	# End user configure =>
 
-	init_logger()
+	init_logger(logfile_name=logfile_name)
 
 	# Load input file
 	input_file = open_file(input_filename)
@@ -259,7 +267,8 @@ def main():
 	statistics = calculate_statistics(data_points)
 
 	# Report results
-	log_data_summary(statistics, include_only=include_only, desired_statistics=
-		desired_statistics)
+	log_bench_parameters(GPU_name, input_filename)
+	log_data_summary(statistics, include_only=include_only, 
+		desired_statistics=desired_statistics)
 
 main()

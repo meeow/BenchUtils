@@ -1,7 +1,7 @@
 # Author: Brandon Hong
 # Pre-release
 
-import numpy, math, logging
+import numpy, math, logging, subprocess
 
 # @param logfile_name: file name of logfile, logs to stdout if none specified
 def init_logger(logfile_name=None):
@@ -214,16 +214,45 @@ def discard_outliers(data_points, accept_outliers=[], threshold=3.0,
 
 	return processed_data_points
 
+# Run benchmarks which have CLI options
+# [Under development]
+# @param res: resolution to run tests at (string, W x H) 
+#	e.g. '1920x1200'
+def run_benches(res):
+	def start_afterburner():
+		pass
+
+	# Unable to test this due to not having advanced edition
+	def superposition_CLI():
+		# Debug
+		superposition_path = r'D:\Benches\GPU\Superposition Benchmark\bin'
+
+		CLI = [superposition_path + '\superposition_cli','-api directx', 
+			'-fullscreen 0', '-resolution ' + res, '-sound 1', '-mode default',
+			'-iterations 1', '-quality extreme']
+
+		return CLI
+
+	CLI_queue = list()
+	CLI_queue.append(superposition_CLI())
+
+	for CLI in CLI_queue:
+		instance = subprocess.Popen(CLI, shell=True)
+		instance.communicate()
+		print 'Ran', ' '.join(CLI)
+
+
 def main():
 	# <= User configure (This will be moved to config file once implemented)
+	logfile_name = 'analysis.txt'
 
 	input_filename = '10603G_stock_heaven.hml'
-	logfile_name = 'analysis.txt'
 	#input_filename = '1050_stock_heaven.hml'
 	#input_filename = '460_stock_heaven.hml'
 	#input_filename = '10606G_stock_heaven.hml'
 	input_filename = '4804G_stock_heaven.hml'
-	#input_filename = '4804G_stock_FFXIV.hml'
+	input_filename = '4804G_stock_FFXIV.hml'
+	input_filename = '1080ti_stock_FFXIV_1440p.hml'
 	
 	# Ignore outliers for these columns
 	accept_outliers = ['FB usage', 'Memory usage', 'RAM usage', 'CPU usage']
@@ -238,9 +267,17 @@ def main():
 	desired_statistics = ['Mean', 'Median', '1_Pct_Low', 'Standard_Deviation',
 		'Mean_Median_Delta_Pct']
 
+	# Run automated benchmarks if user has them installed (skip if not found)
+	# Feature untested and unfinished, recommend set to 0
+	benchmark = 0
+
 	# End user configure =>
 
 	init_logger(logfile_name=logfile_name)
+
+	# Run automated benchmarks
+	if benchmark:
+		run_benches('2560x1440')
 
 	# Load input file
 	input_file = open_file(input_filename)
